@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Techniker Dropdown Widget (mit Dienstleister-Filter)</title>
+    <script src="//js.jotform.com/JotFormCustomWidget.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 10px;
+      }
+      #main {
+        width: 100%;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      select {
+        width: 100%;
+        padding: 8px;
+        font-size: 1em;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="main">
+      <label for="technikerSelect">Techniker auswählen:</label>
+      <select id="technikerSelect">
+        <option value="">Lade Techniker…</option>
+      </select>
+    </div>
+
+    <script type="text/javascript">
+      (function(){
+        var select = document.getElementById('technikerSelect');
+        var jsonUrl = 'https://matthiasillenseer.github.io/techniker-dropdown-widget/techniker.json';
+        var dienstleisterFilter = null;
+
+        // Techniker laden und ggf. filtern
+        function loadTechniker(callback) {
+          fetch(jsonUrl + '?t=' + Date.now())
+            .then(function(res){
+              if (!res.ok) throw new Error('Netzwerkantwort war nicht OK');
+              return res.json();
+            })
+            .then(function(technikerArray){
+              var previous = select.value;
+              select.innerHTML = '';
+
+              if (dienstleisterFilter) {
+                technikerArray = technikerArray.filter(function(entry){
+                  return entry.dienstleister.toLowerCase() === dienstleisterFilter.toLowerCase();
+                });
+              }
+
+              technikerArray.forEach(function(entry){
+                var opt = document.createElement('option');
+                opt.value = entry.name;
+                opt.textContent = entry.name;
+                select.appendChild(opt);
+              });
+
+              if (technikerArray.find(t => t.name === previous)) {
+                select.value = previous;
+              } else if (technikerArray.length > 0) {
+                select.value = technikerArray[0].name;
+              }
+
+              if (typeof callback === 'function') callback(select.value);
+              JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
+            })
+            .catch(function(err){
+              console.error('Fehler beim Laden der Techniker‑Liste:', err);
+              select.innerHTML = '<option value="">Liste konnte nicht geladen werden</option>';
+              JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
+            });
+        }
+
+        // Live-Überwachung des Formularfelds "dienstleister"
+        function observeDienstleisterField() {
+          JFCustomWidget.getFieldsValue(function(fields) {
+            if (fields && fields.dienstleister) {
+              dienstleisterFilter = fields.dienstleister.trim();
+              loadTechniker(function(val){
+                JFCustomWidget.sendData({ value: val });
+              });
+            }
+          });
+
+          // Event für Feldwert-Änderung
+          JFCustomWidget.subscribe("fieldChanged", function(data){
+            if (data.name === "dienstleister") {
+              dienstleisterFilter = data.value.trim();
+              loadTechniker(function(val){
+                JFCustomWidget.sendData({ value: val });
+              });
+            }
+          });
+        }
+
+        // Widget ready
+        JFCustomWidget.subscribe("ready", function(){
+          observeDienstleisterField();
+
+          select.addEventListener('change', function(){
+            JFCustomWidget.sendData({ value: select.value });
+          });
+        });
+
+        // Beim Formular-Submit
+        JFCustomWidget.subscribe("submit", function(){
+          JFCustomWidget.sendSubmit({
+            valid: true,
+            value: select.value
+          });
+        });
+
+      })();
+    </script>
+  </body>
+</html>
