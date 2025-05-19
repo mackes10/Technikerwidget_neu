@@ -1,16 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
   <title>Techniker Dropdown</title>
   <style>
     body {
       font-family: sans-serif;
-      padding: 10px;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
+      margin: 10px;
     }
     select {
       width: 100%;
@@ -20,85 +16,99 @@
   </style>
 </head>
 <body>
-  <label for="techniker">Techniker auswählen:</label>
-  <select id="techniker">
-    <option value="">Bitte Dienstleister wählen</option>
+  <label for="technikerDropdown">Techniker auswählen:</label>
+  <select id="technikerDropdown">
+    <option>Bitte Dienstleister wählen</option>
   </select>
 
-  <script src="https://cdn.jotfor.ms/widgets/jotformCustomWidget.min.js"></script>
   <script>
     let technikerData = [];
 
-    // Lädt Techniker-JSON von GitHub
+    // Techniker laden
     async function loadTechnikerJSON() {
       try {
         const response = await fetch("https://mackes10.github.io/Technikerwidget_neu/techniker.json");
-        if (!response.ok) throw new Error("Fehler beim Laden der Technikerliste");
+        if (!response.ok) throw new Error("Fehler beim Laden der JSON");
         technikerData = await response.json();
+        console.log("Techniker-Daten geladen:", technikerData);
       } catch (error) {
-        console.error("Fehler beim Laden der Techniker-JSON:", error);
+        console.error("Fehler beim Laden der Techniker:", error);
       }
     }
 
-    // Filtert Techniker nach Dienstleister
+    // Dropdown füllen
     function filterTechniker(dienstleister) {
-      const dropdown = document.getElementById("techniker");
-      dropdown.innerHTML = ""; // Leeren
+      const dropdown = document.getElementById("technikerDropdown");
+      dropdown.innerHTML = "";
 
-      const technikerListe = technikerData.filter(t => t.dienstleister.toLowerCase() === dienstleister.toLowerCase());
+      const gefiltert = technikerData.filter(t => t.dienstleister.toLowerCase() === dienstleister.toLowerCase());
 
-      if (technikerListe.length === 0) {
+      if (gefiltert.length === 0) {
         const option = document.createElement("option");
         option.text = "Keine Techniker gefunden";
-        option.disabled = true;
         dropdown.add(option);
         return;
       }
 
-      // Standardoption
-      const optionDefault = document.createElement("option");
-      optionDefault.value = "";
-      optionDefault.text = "Bitte Techniker auswählen";
-      dropdown.add(optionDefault);
+      const placeholder = document.createElement("option");
+      placeholder.text = "Bitte Techniker wählen";
+      dropdown.add(placeholder);
 
-      // Optionen hinzufügen
-      technikerListe.forEach(t => {
+      gefiltert.forEach(techniker => {
         const option = document.createElement("option");
-        option.value = t.name;
-        option.text = t.name;
+        option.value = techniker.name;
+        option.text = techniker.name;
         dropdown.add(option);
       });
-
-      // Widget-Wert setzen
-      JFCustomWidget.setValue(dropdown.value || "");
     }
 
+    // Initialisierung des Widgets
     async function initWidget() {
       await loadTechnikerJSON();
 
-      // Initial: Dienstleister-Feld lesen
+      if (typeof JFCustomWidget === "undefined") {
+        console.error("JFCustomWidget ist nicht definiert. Läuft das im Jotform-Widget?");
+        return;
+      }
+
+      // Dienstleister auslesen und Dropdown füllen
       JFCustomWidget.getField("dienstleister", function(value) {
+        console.log("Dienstleister-Feldwert:", value);
         if (value) {
           filterTechniker(value);
         }
       });
 
-      // Bei Änderungen am Dienstleister-Feld neu filtern
-      JFCustomWidget.subscribe("fieldChanged", function(data) {
-        if (data.name === "dienstleister") {
-          filterTechniker(data.value);
+      // Änderungen überwachen (wenn z. B. auf der Seite geändert wird)
+      window.addEventListener("message", function (e) {
+        if (e.data?.type === "widget-comms" && e.data?.name === "dienstleister") {
+          const neuerWert = e.data.value;
+          console.log("Dienstleister geändert auf:", neuerWert);
+          filterTechniker(neuerWert);
         }
       });
 
-      // Technikerwahl im Dropdown → Widget-Wert setzen
-      document.getElementById("techniker").addEventListener("change", function () {
-        JFCustomWidget.setValue(this.value);
+      // Wert im Dropdown an Jotform zurückmelden
+      document.getElementById("technikerDropdown").addEventListener("change", function () {
+        const value = this.value;
+        console.log("Ausgewählter Techniker:", value);
+        JFCustomWidget.sendData({ value });
       });
 
-      JFCustomWidget.ready();
+      // Widget-Resizing aktivieren
+      JFCustomWidget.setHeight(60);
     }
 
-    initWidget();
+    // Warte, bis alles geladen ist
+    window.addEventListener("load", function () {
+      // Warten auf JFCustomWidget
+      const checkInterval = setInterval(() => {
+        if (typeof JFCustomWidget !== "undefined") {
+          clearInterval(checkInterval);
+          initWidget();
+        }
+      }, 100);
+    });
   </script>
 </body>
 </html>
