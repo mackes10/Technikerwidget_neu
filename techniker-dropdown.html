@@ -60,14 +60,14 @@
       function updateDropdown(dienstleister) {
         select.innerHTML = "";
 
-        if (!dienstleister) {
+        if (!dienstleister || dienstleister.trim() === "") {
           select.innerHTML = '<option value="">Bitte Dienstleister wählen</option>';
           return;
         }
 
-        // Filter
+        // Filter, case-insensitive
         const gefilterteTechniker = technikerData.filter(
-          (t) => t.dienstleister === dienstleister
+          (t) => t.dienstleister.toLowerCase() === dienstleister.trim().toLowerCase()
         );
 
         if (gefilterteTechniker.length === 0) {
@@ -87,36 +87,35 @@
         select.value = gefilterteTechniker[0].name;
       }
 
-      // Initialisieren & Event abonnieren
+      // Widget initialisieren
       function initWidget() {
         loadJson().then(() => {
-          // Dienstleister aus User Parameter auslesen
-          let dienstleister = JFCustomWidget.getWidgetSetting("dienstleister");
+          // Ersten Dienstleister aus dem Formular auslesen
+          let dienstleister = JFCustomWidget.getFieldValue("dienstleister");
 
           updateDropdown(dienstleister);
 
-          // Auf Änderung vom User Parameter "dienstleister" lauschen
-          JFCustomWidget.subscribe("settingChanged", function (key, value) {
-            if (key === "dienstleister") {
+          // Auf Änderungen am Dienstleister-Feld lauschen
+          JFCustomWidget.subscribe("change", function (fieldName, value) {
+            if (fieldName === "dienstleister") {
               updateDropdown(value);
-              // Wenn du willst, hier noch eventuelle Daten senden:
               JFCustomWidget.sendData({ value: select.value });
             }
           });
 
-          // Wenn der Nutzer den Techniker auswählt, sende Wert an Formular
+          // Wenn Nutzer Techniker auswählt, Wert an Formular senden
           select.addEventListener("change", function () {
             JFCustomWidget.sendData({ value: select.value });
           });
 
-          // Resize anpassen
+          // Größe anpassen
           JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
         });
       }
 
       JFCustomWidget.subscribe("ready", initWidget);
 
-      // Beim Submit sicherstellen, dass Wert gesendet wird
+      // Beim Submit Wert senden
       JFCustomWidget.subscribe("submit", function () {
         JFCustomWidget.sendSubmit({
           valid: true,
