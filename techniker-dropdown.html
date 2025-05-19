@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Techniker Dropdown Widget (mit Dienstleister-Filter)</title>
+    <title>Techniker Dropdown Widget (reload on change)</title>
     <script src="//js.jotform.com/JotFormCustomWidget.min.js"></script>
     <style>
       body {
@@ -38,39 +38,37 @@
       (function(){
         var select = document.getElementById('technikerSelect');
         var jsonUrl = 'https://matthiasillenseer.github.io/techniker-dropdown-widget/techniker.json';
-        var dienstleisterFilter = null;
 
-        // Techniker laden und ggf. filtern
+        // Funktion zum Laden und Befüllen
         function loadTechniker(callback) {
+          // Cache-Busting
           fetch(jsonUrl + '?t=' + Date.now())
             .then(function(res){
               if (!res.ok) throw new Error('Netzwerkantwort war nicht OK');
               return res.json();
             })
             .then(function(technikerArray){
+              // Alte Optionen merken
               var previous = select.value;
+              // Select leeren
               select.innerHTML = '';
-
-              if (dienstleisterFilter) {
-                technikerArray = technikerArray.filter(function(entry){
-                  return entry.dienstleister.toLowerCase() === dienstleisterFilter.toLowerCase();
-                });
-              }
-
-              technikerArray.forEach(function(entry){
+              // Neue Optionen anlegen
+              technikerArray.forEach(function(name){
                 var opt = document.createElement('option');
-                opt.value = entry.name;
-                opt.textContent = entry.name;
+                opt.value = name;
+                opt.textContent = name;
                 select.appendChild(opt);
               });
-
-              if (technikerArray.find(t => t.name === previous)) {
+              // Wenn vorige Auswahl noch existiert, setzen, sonst ersten Eintrag
+              if (technikerArray.indexOf(previous) !== -1) {
                 select.value = previous;
               } else if (technikerArray.length > 0) {
-                select.value = technikerArray[0].name;
+                select.value = technikerArray[0];
               }
-
+              // Callback z.B. zum Senden verwenden
               if (typeof callback === 'function') callback(select.value);
+
+              // Höhe anpassen
               JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
             })
             .catch(function(err){
@@ -80,38 +78,22 @@
             });
         }
 
-        // Live-Überwachung des Formularfelds "dienstleister"
-        function observeDienstleisterField() {
-          JFCustomWidget.getFieldsValue(function(fields) {
-            if (fields && fields.dienstleister) {
-              dienstleisterFilter = fields.dienstleister.trim();
-              loadTechniker(function(val){
-                JFCustomWidget.sendData({ value: val });
-              });
-            }
-          });
-
-          // Event für Feldwert-Änderung
-          JFCustomWidget.subscribe("fieldChanged", function(data){
-            if (data.name === "dienstleister") {
-              dienstleisterFilter = data.value.trim();
-              loadTechniker(function(val){
-                JFCustomWidget.sendData({ value: val });
-              });
-            }
-          });
-        }
-
-        // Widget ready
+        // Widget ready: initial laden
         JFCustomWidget.subscribe("ready", function(){
-          observeDienstleisterField();
+          loadTechniker(function(val){
+            // direkt initialen Wert senden
+            JFCustomWidget.sendData({ value: val });
+          });
 
+          // Bei jeder Änderung neu laden und dann senden
           select.addEventListener('change', function(){
-            JFCustomWidget.sendData({ value: select.value });
+            loadTechniker(function(val){
+              JFCustomWidget.sendData({ value: val });
+            });
           });
         });
 
-        // Beim Formular-Submit
+        // Beim Formular-Submit den finalen Wert senden
         JFCustomWidget.subscribe("submit", function(){
           JFCustomWidget.sendSubmit({
             valid: true,
