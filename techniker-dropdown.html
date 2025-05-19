@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>Techniker Dropdown Widget</title>
-  <script src="//js.jotform.com/JotFormCustomWidget.min.js"></script>
+  <meta charset="utf-8">
+  <title>Techniker Dropdown</title>
+  <script src="https://js.jotform.com/JotFormCustomWidget.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -30,7 +30,7 @@
   <div id="main">
     <label for="technikerSelect">Techniker auswählen:</label>
     <select id="technikerSelect">
-      <option value="">Bitte Dienstleister auswählen</option>
+      <option value="">Lade Techniker…</option>
     </select>
   </div>
 
@@ -39,60 +39,54 @@
       const select = document.getElementById('technikerSelect');
       const jsonUrl = 'https://mackes10.github.io/Technikerwidget_neu/techniker.json';
 
-      function filterTechniker(liste, dienstleister) {
-        return liste.filter(function (t) {
-          return t.dienstleister && t.dienstleister.toLowerCase() === dienstleister.toLowerCase();
-        });
-      }
-
-      function populateDropdown(technikerListe) {
-        select.innerHTML = '';
-        if (technikerListe.length === 0) {
-          select.innerHTML = '<option value="">Keine Techniker gefunden</option>';
-        } else {
-          technikerListe.forEach(function (t) {
-            const opt = document.createElement('option');
-            opt.value = t.name;
-            opt.textContent = t.name;
-            select.appendChild(opt);
-          });
-          select.value = technikerListe[0].name;
-          JFCustomWidget.sendData({ value: technikerListe[0].name });
-        }
-        JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
-      }
-
-      // Initialisieren, wenn Widget bereit ist
-      JFCustomWidget.subscribe("ready", function () {
-        const settings = JFCustomWidget.getWidgetSettings();
-        const dienstleister = settings.dienstleister;
-
-        if (!dienstleister || dienstleister.trim() === "") {
-          select.innerHTML = '<option value="">Bitte Dienstleister auswählen</option>';
+      function loadTechniker(dienstleister) {
+        if (!dienstleister) {
+          select.innerHTML = '<option value="">Bitte Dienstleister wählen</option>';
           return;
         }
 
         fetch(jsonUrl + '?t=' + Date.now())
-          .then(function (res) {
-            if (!res.ok) throw new Error('Fehler beim Laden der JSON-Datei');
-            return res.json();
+          .then(res => res.json())
+          .then(data => {
+            const gefiltert = data.filter(t =>
+              t.dienstleister &&
+              t.dienstleister.toLowerCase() === dienstleister.toLowerCase()
+            );
+
+            select.innerHTML = '';
+
+            if (gefiltert.length === 0) {
+              select.innerHTML = '<option value="">Keine Techniker gefunden</option>';
+              return;
+            }
+
+            gefiltert.forEach(t => {
+              const opt = document.createElement('option');
+              opt.value = t.name;
+              opt.textContent = t.name;
+              select.appendChild(opt);
+            });
+
+            select.value = gefiltert[0].name;
+            JFCustomWidget.sendData({ value: select.value });
           })
-          .then(function (technikerListe) {
-            const gefiltert = filterTechniker(technikerListe, dienstleister);
-            populateDropdown(gefiltert);
-          })
-          .catch(function (err) {
+          .catch(err => {
             console.error('Fehler beim Laden:', err);
             select.innerHTML = '<option value="">Fehler beim Laden</option>';
           });
+      }
+
+      JFCustomWidget.subscribe("ready", function () {
+        const settings = JFCustomWidget.getWidgetSettings();
+        const dienstleister = settings.dienstleister;
+        loadTechniker(dienstleister);
+        JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
       });
 
-      // Auswahl ändern
       select.addEventListener('change', function () {
-        JFCustomWidget.sendData({ value: this.value });
+        JFCustomWidget.sendData({ value: select.value });
       });
 
-      // Beim Abschicken
       JFCustomWidget.subscribe("submit", function () {
         JFCustomWidget.sendSubmit({ valid: true, value: select.value });
       });
