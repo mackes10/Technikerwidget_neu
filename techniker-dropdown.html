@@ -1,125 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Techniker Dropdown Widget</title>
-  <script src="//js.jotform.com/JotFormCustomWidget.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Techniker Dropdown</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      margin: 0;
+      font-family: sans-serif;
       padding: 10px;
-    }
-    #main {
-      width: 100%;
     }
     label {
       display: block;
       margin-bottom: 5px;
-      font-weight: bold;
     }
     select {
       width: 100%;
       padding: 8px;
-      font-size: 1em;
-      box-sizing: border-box;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <div id="main">
-    <label for="technikerSelect">Techniker auswählen:</label>
-    <select id="technikerSelect">
-      <option value="">Lade Techniker…</option>
-    </select>
-  </div>
+  <label for="techniker">Techniker auswählen:</label>
+  <select id="techniker">
+    <option value="">Bitte Dienstleister wählen</option>
+  </select>
 
-  <script type="text/javascript">
-    (function(){
-      var select = document.getElementById('technikerSelect');
-      var jsonUrl = 'https://mackes10.github.io/Technikerwidget_neu/techniker.json';
-      var letzterDienstleister = '';
+  <script src="https://cdn.jotfor.ms/widgets/jotformCustomWidget.min.js"></script>
+  <script>
+    let technikerData = [];
 
-      function loadTechniker(dienstleisterWert, callback) {
-        console.log("Lade Techniker für Dienstleister:", dienstleisterWert);
+    // Lädt Techniker-JSON von GitHub
+    async function loadTechnikerJSON() {
+      try {
+        const response = await fetch("https://mackes10.github.io/Technikerwidget_neu/techniker.json");
+        if (!response.ok) throw new Error("Fehler beim Laden der Technikerliste");
+        technikerData = await response.json();
+      } catch (error) {
+        console.error("Fehler beim Laden der Techniker-JSON:", error);
+      }
+    }
 
-        fetch(jsonUrl + '?t=' + Date.now())
-          .then(res => {
-            if (!res.ok) throw new Error('Netzwerkantwort war nicht OK');
-            return res.json();
-          })
-          .then(technikerArray => {
-            var previous = select.value;
-            select.innerHTML = '';
+    // Filtert Techniker nach Dienstleister
+    function filterTechniker(dienstleister) {
+      const dropdown = document.getElementById("techniker");
+      dropdown.innerHTML = ""; // Leeren
 
-            var gefilterte = technikerArray.filter(e =>
-              e.dienstleister.toLowerCase() === dienstleisterWert.toLowerCase()
-            );
+      const technikerListe = technikerData.filter(t => t.dienstleister.toLowerCase() === dienstleister.toLowerCase());
 
-            if (gefilterte.length === 0) {
-              var opt = document.createElement('option');
-              opt.value = '';
-              opt.textContent = 'Keine Techniker gefunden';
-              select.appendChild(opt);
-            } else {
-              gefilterte.forEach(e => {
-                var opt = document.createElement('option');
-                opt.value = e.name;
-                opt.textContent = e.name;
-                select.appendChild(opt);
-              });
-
-              if (gefilterte.some(e => e.name === previous)) {
-                select.value = previous;
-              } else {
-                select.value = gefilterte[0].name;
-              }
-            }
-
-            if (typeof callback === 'function') callback(select.value);
-            JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
-          })
-          .catch(err => {
-            console.error('Fehler beim Laden der Techniker-Liste:', err);
-            select.innerHTML = '<option value="">Liste konnte nicht geladen werden</option>';
-            JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
-          });
+      if (technikerListe.length === 0) {
+        const option = document.createElement("option");
+        option.text = "Keine Techniker gefunden";
+        option.disabled = true;
+        dropdown.add(option);
+        return;
       }
 
-      // Initial laden
-      JFCustomWidget.subscribe("ready", function(data){
-        if (data && data.dienstleister) {
-          letzterDienstleister = data.dienstleister;
-          loadTechniker(data.dienstleister, function(val){
-            JFCustomWidget.sendData({ value: val });
-          });
+      // Standardoption
+      const optionDefault = document.createElement("option");
+      optionDefault.value = "";
+      optionDefault.text = "Bitte Techniker auswählen";
+      dropdown.add(optionDefault);
+
+      // Optionen hinzufügen
+      technikerListe.forEach(t => {
+        const option = document.createElement("option");
+        option.value = t.name;
+        option.text = t.name;
+        dropdown.add(option);
+      });
+
+      // Widget-Wert setzen
+      JFCustomWidget.setValue(dropdown.value || "");
+    }
+
+    async function initWidget() {
+      await loadTechnikerJSON();
+
+      // Initial: Dienstleister-Feld lesen
+      JFCustomWidget.getField("dienstleister", function(value) {
+        if (value) {
+          filterTechniker(value);
         }
       });
 
-      // Wenn sich "dienstleister" im Formular ändert
-      JFCustomWidget.subscribe("fieldsChanged", function(data){
-        if (data && data.dienstleister && data.dienstleister !== letzterDienstleister) {
-          letzterDienstleister = data.dienstleister;
-          loadTechniker(data.dienstleister, function(val){
-            JFCustomWidget.sendData({ value: val });
-          });
+      // Bei Änderungen am Dienstleister-Feld neu filtern
+      JFCustomWidget.subscribe("fieldChanged", function(data) {
+        if (data.name === "dienstleister") {
+          filterTechniker(data.value);
         }
       });
 
-      // Auswahl ändert sich → senden
-      select.addEventListener('change', function(){
-        JFCustomWidget.sendData({ value: select.value });
+      // Technikerwahl im Dropdown → Widget-Wert setzen
+      document.getElementById("techniker").addEventListener("change", function () {
+        JFCustomWidget.setValue(this.value);
       });
 
-      // Formular wird abgesendet
-      JFCustomWidget.subscribe("submit", function(){
-        JFCustomWidget.sendSubmit({
-          valid: true,
-          value: select.value
-        });
-      });
+      JFCustomWidget.ready();
+    }
 
-    })();
+    initWidget();
   </script>
 </body>
 </html>
