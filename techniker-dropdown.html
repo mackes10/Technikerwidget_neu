@@ -1,123 +1,125 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>Techniker Dropdown Widget (nach Dienstleister)</title>
-    <script src="//js.jotform.com/JotFormCustomWidget.min.js"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 10px;
-      }
-      #main {
-        width: 100%;
-      }
-      label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-      }
-      select {
-        width: 100%;
-        padding: 8px;
-        font-size: 1em;
-        box-sizing: border-box;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="main">
-      <label for="technikerSelect">Techniker auswählen:</label>
-      <select id="technikerSelect">
-        <option value="">Lade Techniker…</option>
-      </select>
-    </div>
+<head>
+  <meta charset="utf-8">
+  <title>Techniker Dropdown Widget</title>
+  <script src="//js.jotform.com/JotFormCustomWidget.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+    }
+    #main {
+      width: 100%;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    select {
+      width: 100%;
+      padding: 8px;
+      font-size: 1em;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div id="main">
+    <label for="technikerSelect">Techniker auswählen:</label>
+    <select id="technikerSelect">
+      <option value="">Lade Techniker…</option>
+    </select>
+  </div>
 
-    <script type="text/javascript">
-      (function(){
-        var select = document.getElementById('technikerSelect');
-        var jsonUrl = 'https://mackes10.github.io/Technikerwidget_neu/techniker.json';
+  <script type="text/javascript">
+    (function(){
+      var select = document.getElementById('technikerSelect');
+      var jsonUrl = 'https://mackes10.github.io/Technikerwidget_neu/techniker.json';
+      var letzterDienstleister = '';
 
-        // Funktion zum Laden und Filtern
-        function loadTechniker(callback) {
-          JFCustomWidget.getField("dienstleister", function(dienstleisterWert) {
-            // JSON laden
-            fetch(jsonUrl + '?t=' + Date.now())
-              .then(function(res){
-                if (!res.ok) throw new Error('Netzwerkantwort war nicht OK');
-                return res.json();
-              })
-              .then(function(technikerArray){
-                var previous = select.value;
-                select.innerHTML = '';
+      function loadTechniker(dienstleisterWert, callback) {
+        console.log("Lade Techniker für Dienstleister:", dienstleisterWert);
 
-                // Filtern nach Dienstleister
-                var gefilterteTechniker = technikerArray.filter(function(eintrag){
-                  return eintrag.dienstleister === dienstleisterWert;
-                });
+        fetch(jsonUrl + '?t=' + Date.now())
+          .then(res => {
+            if (!res.ok) throw new Error('Netzwerkantwort war nicht OK');
+            return res.json();
+          })
+          .then(technikerArray => {
+            var previous = select.value;
+            select.innerHTML = '';
 
-                if (gefilterteTechniker.length === 0) {
-                  var opt = document.createElement('option');
-                  opt.value = '';
-                  opt.textContent = 'Keine Techniker gefunden';
-                  select.appendChild(opt);
-                } else {
-                  gefilterteTechniker.forEach(function(eintrag){
-                    var opt = document.createElement('option');
-                    opt.value = eintrag.name;
-                    opt.textContent = eintrag.name;
-                    select.appendChild(opt);
-                  });
+            var gefilterte = technikerArray.filter(e =>
+              e.dienstleister.toLowerCase() === dienstleisterWert.toLowerCase()
+            );
 
-                  if (gefilterteTechniker.some(e => e.name === previous)) {
-                    select.value = previous;
-                  } else {
-                    select.value = gefilterteTechniker[0].name;
-                  }
-                }
-
-                if (typeof callback === 'function') callback(select.value);
-                JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
-              })
-              .catch(function(err){
-                console.error('Fehler beim Laden der Techniker‑Liste:', err);
-                select.innerHTML = '<option value="">Liste konnte nicht geladen werden</option>';
-                JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
+            if (gefilterte.length === 0) {
+              var opt = document.createElement('option');
+              opt.value = '';
+              opt.textContent = 'Keine Techniker gefunden';
+              select.appendChild(opt);
+            } else {
+              gefilterte.forEach(e => {
+                var opt = document.createElement('option');
+                opt.value = e.name;
+                opt.textContent = e.name;
+                select.appendChild(opt);
               });
-          });
-        }
 
-        // Initiales Laden beim Start
-        JFCustomWidget.subscribe("ready", function(){
-          loadTechniker(function(val){
+              if (gefilterte.some(e => e.name === previous)) {
+                select.value = previous;
+              } else {
+                select.value = gefilterte[0].name;
+              }
+            }
+
+            if (typeof callback === 'function') callback(select.value);
+            JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
+          })
+          .catch(err => {
+            console.error('Fehler beim Laden der Techniker-Liste:', err);
+            select.innerHTML = '<option value="">Liste konnte nicht geladen werden</option>';
+            JFCustomWidget.requestFrameResize({ height: document.body.scrollHeight });
+          });
+      }
+
+      // Initial laden
+      JFCustomWidget.subscribe("ready", function(data){
+        if (data && data.dienstleister) {
+          letzterDienstleister = data.dienstleister;
+          loadTechniker(data.dienstleister, function(val){
             JFCustomWidget.sendData({ value: val });
           });
+        }
+      });
 
-          // Änderung des Techniker-Auswahlfeldes
-          select.addEventListener('change', function(){
-            JFCustomWidget.sendData({ value: select.value });
+      // Wenn sich "dienstleister" im Formular ändert
+      JFCustomWidget.subscribe("fieldsChanged", function(data){
+        if (data && data.dienstleister && data.dienstleister !== letzterDienstleister) {
+          letzterDienstleister = data.dienstleister;
+          loadTechniker(data.dienstleister, function(val){
+            JFCustomWidget.sendData({ value: val });
           });
-        });
+        }
+      });
 
-        // Wenn sich das Feld "dienstleister" ändert → neu laden
-        JFCustomWidget.subscribe("fieldsChanged", function(data) {
-          if (data && data.dienstleister !== undefined) {
-            loadTechniker(function(val){
-              JFCustomWidget.sendData({ value: val });
-            });
-          }
-        });
+      // Auswahl ändert sich → senden
+      select.addEventListener('change', function(){
+        JFCustomWidget.sendData({ value: select.value });
+      });
 
-        // Beim Absenden den aktuellen Wert zurückgeben
-        JFCustomWidget.subscribe("submit", function(){
-          JFCustomWidget.sendSubmit({
-            valid: true,
-            value: select.value
-          });
+      // Formular wird abgesendet
+      JFCustomWidget.subscribe("submit", function(){
+        JFCustomWidget.sendSubmit({
+          valid: true,
+          value: select.value
         });
+      });
 
-      })();
-    </script>
-  </body>
+    })();
+  </script>
+</body>
 </html>
